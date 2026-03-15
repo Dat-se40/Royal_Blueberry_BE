@@ -2,14 +2,9 @@ package com.example.Royal_Blueberry.service.impl;
 
 import ai.djl.huggingface.tokenizers.Encoding;
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;
-import ai.djl.inference.Predictor;
-import ai.djl.repository.zoo.Criteria;
-import ai.djl.repository.zoo.ModelZoo;
-import ai.djl.repository.zoo.ZooModel;
 import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtSession;
-import com.example.Royal_Blueberry.mapper.SentenceTranslator;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -29,29 +24,54 @@ public class EmbeddingService {
     private OrtEnvironment env;
     private OrtSession session;
     private HuggingFaceTokenizer tokenizer;
+    private boolean isInitialized = false;
 
     @EventListener(ApplicationReadyEvent.class)
     public void init() throws Exception {
+        try {
+            log.info("[EmbeddingService] Loading ONNX model...");
+            long startTime = System.currentTimeMillis();
 
-        log.info("[EmbeddingService] Loading ONNX model...");
+            // Load ONNX model
+            log.info("[EmbeddingService] Creating OrtEnvironment...");
+            env = OrtEnvironment.getEnvironment();
 
-        // Load ONNX model
-        env = OrtEnvironment.getEnvironment();
-        try (InputStream is = getClass().getResourceAsStream("/models/model.onnx")) {
-            byte[] modelBytes = is.readAllBytes();
-            session = env.createSession(modelBytes, new OrtSession.SessionOptions());
+            log.info("[EmbeddingService] Reading model.onnx from classpath...");
+            try (InputStream is = getClass().getResourceAsStream("/models/model.onnx")) {
+                if (is == null) {
+                    throw new RuntimeException("model.onnx not found in classpath!");
+                }
+                byte[] modelBytes = is.readAllBytes();
+                log.info("[EmbeddingService] model.onnx size: {} bytes", modelBytes.length);
+
+                log.info("[EmbeddingService] Creating OrtSession...");
+                session = env.createSession(modelBytes, new OrtSession.SessionOptions());
+            }
+
+            // Load tokenizer từ local file
+            log.info("[EmbeddingService] Loading tokenizer.json...");
+            Path tokenizerPath = Paths.get(
+                    getClass().getResource("/models/tokenizer.json").toURI()
+            );
+            log.info("[EmbeddingService] Tokenizer path: {}", tokenizerPath);
+            tokenizer = HuggingFaceTokenizer.newInstance(tokenizerPath);
+
+            isInitialized = true;
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("[EmbeddingService] ✅ ONNX model loaded successfully in {}ms", elapsed);
+
+        } catch (Exception e) {
+            log.error("[EmbeddingService] ❌ Failed to initialize ONNX model", e);
+            throw new RuntimeException("Failed to initialize EmbeddingService: " + e.getMessage(), e);
         }
-
-        // Load tokenizer từ local file
-        Path tokenizerPath = Paths.get(
-                getClass().getResource("/models/tokenizer.json").toURI()
-        );
-        tokenizer = HuggingFaceTokenizer.newInstance(tokenizerPath);
-
-        log.info("[EmbeddingService] ONNX model loaded");
     }
 
     public float[] embed(String text) {
+        if (!isInitialized) {
+            log.warn("[EmbeddingService] Not initialized, returning zero vector");
+            return new float[384];
+        }
+
         try {
             Encoding encoding = tokenizer.encode(text);
 
@@ -75,7 +95,7 @@ public class EmbeddingService {
             }
 
         } catch (Exception e) {
-            log.error("[EmbeddingService] Embed error: {}", e.getMessage());
+            log.error("[EmbeddingService] Embed error: {}", e.getMessage(), e);
             return new float[384];
         }
     }
