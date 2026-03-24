@@ -1,0 +1,36 @@
+services:
+  server:
+    container_name: royal-blueberry-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/swagger-ui.html"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
