@@ -14,6 +14,7 @@ import java.util.List;
 public class PackageDetailDto {
     private String id;
     private String packageId;
-    private List<WordEntryDto> words;
     private int totalWords;
+    private List<WordEntryDto> words;
+
 }

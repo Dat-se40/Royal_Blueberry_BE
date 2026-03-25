@@ -5,6 +5,7 @@ import com.example.Royal_Blueberry.service.EmbedWordService;
 import com.example.Royal_Blueberry.service.SemanticSearchService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -17,6 +18,7 @@ import static java.lang.Math.sqrt;
 @Service
 @AllArgsConstructor
 @Slf4j
+@Profile("!no_ai")
 public class SemanticSearchServiceImpl  implements SemanticSearchService {
     private final EmbeddingService embeddingService ;
     private final EmbedWordService embedWordService ;

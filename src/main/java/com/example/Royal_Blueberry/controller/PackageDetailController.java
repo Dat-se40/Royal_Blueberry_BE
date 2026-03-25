@@ -29,17 +29,17 @@ public class PackageDetailController {
     @GetMapping
     public ResponseEntity<List<PackageDetailDto>> getAll()
     {
-        return new ResponseEntity<>(packageDetailService.getAllDetails(),HttpStatus.FOUND);
+        return new ResponseEntity<>(packageDetailService.getAllDetails(),HttpStatus.OK);
     }
     @GetMapping("{packageId}")
     public ResponseEntity<PackageDetailDto> getDetailsByPackageId(@PathVariable("packageId") String packageID)
     {
-        return  new ResponseEntity<>(packageDetailService.getDetailByPackageId(packageID),HttpStatus.FOUND);
+        return  new ResponseEntity<>(packageDetailService.getDetailByPackageId(packageID),HttpStatus.OK);
     }
     @PostMapping("{packageId}/new-word")
     public ResponseEntity<PackageDetailDto> addNewWord(@PathVariable("packageId") String packageId ,
                                                        @RequestBody WordEntryDto newWord)
     {
-        return new ResponseEntity<>(packageDetailService.addWord(packageId,newWord),HttpStatus.CREATED);
+        return new ResponseEntity<>(packageDetailService.addWord(packageId,newWord),HttpStatus.OK);
     }
 }

@@ -24,5 +24,6 @@ public class Package {
     private String category;
     private String level ;
     private int totalWords;
+    private String description ;
     private LocalDateTime updateAt ;
 }

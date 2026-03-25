@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 
 @Service
 @Slf4j
+@Profile("!no_ai")
 public class EmbeddingService {
 
     private OrtEnvironment env;
@@ -27,7 +29,7 @@ public class EmbeddingService {
     private HuggingFaceTokenizer tokenizer;
     private boolean isInitialized = false;
 
-    @EventListener(ApplicationReadyEvent.class)
+     @EventListener(ApplicationReadyEvent.class)
     public void init() throws Exception {
         try {
             log.info("[EmbeddingService] Loading ONNX model...");

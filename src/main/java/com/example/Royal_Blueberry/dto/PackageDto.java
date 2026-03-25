@@ -16,6 +16,7 @@ public class PackageDto {
     private String name ;
     private String category;
     private String level ;
+    private String description ;
     private int totalWords;
     private LocalDateTime updateAt ;
 }
