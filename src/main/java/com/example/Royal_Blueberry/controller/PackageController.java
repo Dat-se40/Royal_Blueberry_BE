@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/packages")
 @Slf4j
+@SecurityRequirement(name = com.example.Royal_Blueberry.config.OpenApiConfig.SECURITY_SCHEME_NAME)
+@Tag(name = "Packages", description = "Protected endpoints for managing vocabulary packages")
 public class PackageController
 {
     private final PackageService packageService ;
@@ -34,8 +38,7 @@ public class PackageController
                     - `name`: Package name (e.g., "Business English")
                     - `category`: Category (e.g., "vocabulary", "phrasal verbs")
                     - `level`: Difficulty level (beginner, intermediate, advanced)
-                    """,
-            security = {}
+                    """
     )
     @ApiResponses({
             @ApiResponse(
@@ -69,7 +72,8 @@ public class PackageController
                                       "message": "name must not be blank"
                                     }
                                     """))
-            )
+            ),
+            @ApiResponse(responseCode = "401", description = "Authentication required")
     })
     @PostMapping
     public ResponseEntity<PackageDto> createPackage(@RequestBody PackageDto packageDto)
@@ -93,8 +97,7 @@ public class PackageController
                     - Get all packages: `?`
                     - Contains "vocab": `?category=vocab&op=like`
                     - Beginner level, 10-50 words: `?level=beginner&minWords=10&maxWords=50`
-                    """,
-            security = {}
+                    """
     )
     @ApiResponses({
             @ApiResponse(
@@ -128,7 +131,8 @@ public class PackageController
                     responseCode = "400",
                     description = "Invalid operator or parameters",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)
-            )
+            ),
+            @ApiResponse(responseCode = "401", description = "Authentication required")
     })
     @GetMapping
     public ResponseEntity<List<PackageDto>> getAllPackages(
@@ -201,8 +205,7 @@ public class PackageController
     }
     @Operation(
             summary = "Get package by ID",
-            description = "Retrieves a single package by its MongoDB ObjectId",
-            security = {}
+            description = "Retrieves a single package by its MongoDB ObjectId"
     )
     @ApiResponses({
             @ApiResponse(
@@ -226,7 +229,8 @@ public class PackageController
                                       "message": "Package not found"
                                     }
                                     """))
-            )
+            ),
+            @ApiResponse(responseCode = "401", description = "Authentication required")
     })
     @GetMapping("{id}")
     public ResponseEntity<PackageDto> getPackage(@PathVariable String id)

@@ -7,8 +7,11 @@ import com.example.Royal_Blueberry.service.SemanticSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -25,6 +28,7 @@ import java.util.*;
 @RestController
 @Slf4j
 @Profile("!no_ai")
+@Tag(name = "Semantic Search", description = "Semantic search and embedding management endpoints")
 public class SemanticSearchController {
     private final SemanticSearchService semanticSearchService ;
     private final EmbedWordService embedWordService ;
@@ -111,11 +115,57 @@ public class SemanticSearchController {
         return ResponseEntity.ok(results);
     }
 
+    @Operation(
+            summary = "Generate embedding for one word",
+            description = "Creates the semantic vector for a word if it does not already exist, then returns the stored embedding.",
+            security = @SecurityRequirement(name = com.example.Royal_Blueberry.config.OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Embedding returned",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = EmbedWordVector.class)
+                    )
+            ),
+            @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping("/embed/{word}")
     public ResponseEntity<EmbedWordVector> embedWord(@PathVariable("word") String word) {
 
         return ResponseEntity.ok(embedWordService.ensureEmbedExists(word));
     }
+
+    @Operation(
+            summary = "Initialize embeddings in bulk",
+            description = """
+                    Creates embeddings for a list of words and returns a processing summary,
+                    including total items, success count, failed count, and execution time.
+                    """,
+            security = @SecurityRequirement(name = com.example.Royal_Blueberry.config.OpenApiConfig.SECURITY_SCHEME_NAME)
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Bulk initialization completed",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "total": 100,
+                                      "success": 96,
+                                      "failed": 4,
+                                      "failedWords": ["typo1", "typo2"],
+                                      "totalTimeMs": 8200,
+                                      "totalTimeSec": 8.2,
+                                      "avgMsPerWord": 85
+                                    }
+                                    """)
+                    )
+            ),
+            @ApiResponse(responseCode = "401", description = "Authentication required")
+    })
     @PostMapping("/embed/initialize")
     public ResponseEntity<Map<String, Object>> initializeDataVector(@RequestBody List<String> list) {
 
