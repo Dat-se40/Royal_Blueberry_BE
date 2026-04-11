@@ -11,7 +11,7 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "word_tag_relations")
+@Document(collection = "Word Tag Relations")
 public class WordTagRelation {
     @Id
     private String id;
@@ -19,5 +19,7 @@ public class WordTagRelation {
     private String word;
     private Integer meaningIndex;
     private String tagId;
+    private Boolean isFavourite ;
+    private String note  ;
     private Instant linkedAt;
 }

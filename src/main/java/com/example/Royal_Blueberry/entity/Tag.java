@@ -11,7 +11,7 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "tags")
+@Document(collection = "Tags")
 public class Tag {
     @Id
     private String id;
