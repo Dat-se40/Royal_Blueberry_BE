@@ -34,3 +34,5 @@ build/
 .vscode/
 ### DL file ###
 **/src/main/resources/models/
+
+docs/

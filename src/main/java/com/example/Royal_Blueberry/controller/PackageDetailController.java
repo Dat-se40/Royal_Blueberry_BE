@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @AllArgsConstructor
+@Slf4j
 @RestController
 @RequestMapping("/api/packages/details")
 @SecurityRequirement(name = com.example.Royal_Blueberry.config.OpenApiConfig.SECURITY_SCHEME_NAME)
@@ -46,8 +48,10 @@ public class PackageDetailController {
     public ResponseEntity<PackageDetailDto> create(@PathVariable("id") String packageID,
                                                    @RequestBody PackageDetailDto dto )
     {
-        return new ResponseEntity<>(packageDetailService.createPackageDetail(packageID,dto)
-                                    ,HttpStatus.CREATED);
+        log.info("[PackageDetail] POST /details/{} - Creating package detail", packageID);
+        PackageDetailDto result = packageDetailService.createPackageDetail(packageID, dto);
+        log.info("[PackageDetail] Package detail created - id={}, words={}", result.getId(), result.getWords() != null ? result.getWords().size() : 0);
+        return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 
     @Operation(
@@ -65,7 +69,10 @@ public class PackageDetailController {
     @GetMapping
     public ResponseEntity<List<PackageDetailDto>> getAll()
     {
-        return new ResponseEntity<>(packageDetailService.getAllDetails(),HttpStatus.OK);
+        log.info("[PackageDetail] GET /details - Fetching all package details");
+        List<PackageDetailDto> details = packageDetailService.getAllDetails();
+        log.info("[PackageDetail] Found {} package details", details.size());
+        return new ResponseEntity<>(details, HttpStatus.OK);
     }
 
     @Operation(
@@ -86,7 +93,10 @@ public class PackageDetailController {
     @GetMapping("{packageId}")
     public ResponseEntity<PackageDetailDto> getDetailsByPackageId(@PathVariable("packageId") String packageID)
     {
-        return  new ResponseEntity<>(packageDetailService.getDetailByPackageId(packageID),HttpStatus.OK);
+        log.info("[PackageDetail] GET /details/{} - Fetching package detail", packageID);
+        PackageDetailDto detail = packageDetailService.getDetailByPackageId(packageID);
+        log.info("[PackageDetail] Package detail found - words={}", detail.getWords() != null ? detail.getWords().size() : 0);
+        return new ResponseEntity<>(detail, HttpStatus.OK);
     }
 
     @Operation(
@@ -124,6 +134,9 @@ public class PackageDetailController {
     public ResponseEntity<PackageDetailDto> addNewWord(@PathVariable("packageId") String packageId ,
                                                        @RequestBody WordEntryDto newWord)
     {
-        return new ResponseEntity<>(packageDetailService.addWord(packageId,newWord),HttpStatus.OK);
+        log.info("[PackageDetail] POST /details/{}/new-word - Adding word='{}'", packageId, newWord.getWord());
+        PackageDetailDto result = packageDetailService.addWord(packageId, newWord);
+        log.info("[PackageDetail] Word added - totalWords={}", result.getWords() != null ? result.getWords().size() : 0);
+        return new ResponseEntity<>(result, HttpStatus.OK);
     }
 }

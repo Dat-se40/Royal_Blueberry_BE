@@ -35,6 +35,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = extractJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && jwtTokenProvider.isRefreshToken(jwt)) {
+                log.debug("[JwtFilter] Refresh token detected, skipping authentication - path={}",
+                        request.getRequestURI());
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -51,9 +53,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                log.debug("[JwtFilter] Authenticated user - userId={}, path={}",
+                        userId, request.getRequestURI());
+            } else if (StringUtils.hasText(jwt)) {
+                log.warn("[JwtFilter] Invalid access token - path={}", request.getRequestURI());
             }
         } catch (Exception ex) {
-            log.error("Could not set user authentication in security context", ex);
+            log.error("[JwtFilter] Could not set user authentication - path={}, error={}",
+                    request.getRequestURI(), ex.getMessage());
         }
 
         filterChain.doFilter(request, response);

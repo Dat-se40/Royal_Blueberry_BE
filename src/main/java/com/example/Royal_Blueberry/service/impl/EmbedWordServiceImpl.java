@@ -39,22 +39,24 @@ public class EmbedWordServiceImpl implements EmbedWordService {
     @Override
     public void loadCachesFromRepo() {
         long startTime = System.currentTimeMillis() ;
-        System.out.println("[EmbedWordService] Loading vector cache...");
+        log.info("[EmbedWordService] Loading vector cache from MongoDB...");
         embedWordVectorRepository.findAll().forEach(ev ->
                 vectorCache.put(ev.getWord(), toFloatArray(ev.getVector()))
         );
-        System.out.println("[EmbedWordService] had Loaded "  + vectorCache.size() +
-                " vectors for " + (System.currentTimeMillis() - startTime) + "ms" );
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info("[EmbedWordService] Loaded {} vectors in {}ms", vectorCache.size(), elapsed);
     }
 
     @Override
     public EmbedWordVector ensureEmbedExists(String word) {
+        log.debug("[EmbedWordService] Ensuring embedding exists for word: '{}'", word);
 
         // 1. Đã có trong DB → load cache nếu thiếu → return
         var existing = embedWordVectorRepository.findById(word);
         if (existing.isPresent()) {
             if (!isZeroVector(existing.get().getVector())) {
                 vectorCache.putIfAbsent(word, toFloatArray(existing.get().getVector()));
+                log.debug("[EmbedWordService] Cache hit for word: '{}'", word);
                 return existing.get();
             }
             // Vector = 0 → xóa và tính lại
@@ -65,10 +67,12 @@ public class EmbedWordServiceImpl implements EmbedWordService {
         // 2. Fetch definition từ FindWordService
         String definition = fetchDefinition(word);
         if (definition == null) {
+            log.warn("[EmbedWordService] No definition found for word: '{}'", word);
             return null;
         }
 
         // 3. Gọi model tạo vector
+        log.debug("[EmbedWordService] Generating embedding for: '{}'", word);
         float[] vector = embeddingService.embed(definition);
 
         // 4. Lưu MongoDB
@@ -82,6 +86,7 @@ public class EmbedWordServiceImpl implements EmbedWordService {
 
         // 5. Lưu cache
         vectorCache.put(word, vector);
+        log.info("[EmbedWordService] Embedding created and cached for: '{}'", word);
 
         return entity;
     }

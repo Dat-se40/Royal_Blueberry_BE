@@ -11,10 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -36,7 +38,10 @@ public class AuthController {
     })
     @GetMapping("/google/url")
     public ResponseEntity<GoogleLoginUrlResponse> getGoogleLoginUrl() {
-        return ResponseEntity.ok(authService.getGoogleLoginUrl());
+        log.info("[Auth] GET /google/url - Generating Google login URL");
+        GoogleLoginUrlResponse response = authService.getGoogleLoginUrl();
+        log.info("[Auth] Google login URL generated successfully");
+        return ResponseEntity.ok(response);
     }
 
 
@@ -53,7 +58,9 @@ public class AuthController {
     })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        log.info("[Auth] POST /login - email={}", request.getEmail());
         AuthResponse response = this.authService.login(request);
+        log.info("[Auth] Login successful - userId={}", response.getUser().getId());
         return ResponseEntity.ok(response);
     }
 
@@ -72,7 +79,9 @@ public class AuthController {
     })
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("[Auth] POST /register - email={}, displayName={}", request.getEmail(), request.getDisplayName());
         AuthResponse response = authService.register(request);
+        log.info("[Auth] Registration successful - userId={}", response.getUser().getId());
         return ResponseEntity.ok(response);
     }
 
@@ -94,7 +103,9 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginWithGoogle(
             @Valid @RequestBody GoogleLoginRequest request) {
+        log.info("[Auth] POST /google - Google OAuth login attempt");
         AuthResponse response = authService.loginWithGoogle(request);
+        log.info("[Auth] Google login successful - userId={}", response.getUser().getId());
         return ResponseEntity.ok(response);
     }
 
@@ -112,7 +123,9 @@ public class AuthController {
     @PostMapping("/refresh-token")
     public ResponseEntity<AuthResponse> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request) {
+        log.info("[Auth] POST /refresh-token - Refreshing access token");
         AuthResponse response = authService.refreshToken(request);
+        log.info("[Auth] Token refreshed - userId={}", response.getUser().getId());
         return ResponseEntity.ok(response);
     }
 
@@ -128,7 +141,10 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserInfo> getCurrentUser(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        UserInfo userInfo = authService.getCurrentUser(userDetails.getUser().getId());
+        String userId = userDetails.getUser().getId();
+        log.info("[Auth] GET /me - userId={}", userId);
+        UserInfo userInfo = authService.getCurrentUser(userId);
+        log.debug("[Auth] User info retrieved - email={}", userInfo.getEmail());
         return ResponseEntity.ok(userInfo);
     }
 }

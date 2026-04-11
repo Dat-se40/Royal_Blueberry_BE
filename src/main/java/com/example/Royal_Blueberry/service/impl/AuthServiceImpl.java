@@ -87,14 +87,18 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(LoginRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
+        log.info("[AuthService] Login attempt - email={}", normalizedEmail);
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             normalizedEmail, request.getPassword()));
 
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            log.info("[AuthService] Login successful - userId={}, email={}",
+                    userDetails.getUser().getId(), normalizedEmail);
             return buildAuthResponse(userDetails);
         } catch (BadCredentialsException e) {
+            log.warn("[AuthService] Login failed - invalid credentials for email={}", normalizedEmail);
             throw new AuthException("Invalid email or password");
         }
     }
@@ -102,8 +106,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
+        log.info("[AuthService] Registration attempt - email={}, displayName={}",
+                normalizedEmail, request.getDisplayName());
 
         if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+            log.warn("[AuthService] Registration failed - email already exists: {}", normalizedEmail);
             throw new AuthException("Email already exists", HttpStatus.CONFLICT);
         }
 
@@ -114,6 +121,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         user = saveUserOrThrowConflict(user, "Email already exists");
+        log.info("[AuthService] Registration successful - userId={}, email={}",
+                user.getId(), normalizedEmail);
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
         return buildAuthResponse(userDetails);
@@ -121,12 +130,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public GoogleLoginUrlResponse getGoogleLoginUrl() {
+        log.info("[AuthService] Generating Google login URL");
         assertGoogleLoginConfigured();
 
         String state = jwtTokenProvider.generateOAuthStateToken(GOOGLE_PROVIDER);
         ClientRegistration googleClientRegistration = getGoogleClientRegistration();
         String url = buildGoogleAuthorizationRequest(googleClientRegistration, state)
                 .getAuthorizationRequestUri();
+
+        log.debug("[AuthService] Google login URL generated - redirectUri={}",
+                googleClientRegistration.getRedirectUri());
 
         return GoogleLoginUrlResponse.builder()
                 .url(url)
@@ -138,6 +151,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        log.info("[AuthService] Google OAuth login attempt");
         assertGoogleLoginConfigured();
         validateGoogleState(request.getState());
 
@@ -152,7 +166,11 @@ public class AuthServiceImpl implements AuthService {
         String pictureUrl = idToken.getClaimAsString("picture");
         Boolean emailVerified = idToken.getClaimAsBoolean("email_verified");
 
+        log.info("[AuthService] Google token decoded - email={}, name={}, emailVerified={}",
+                email, name, emailVerified);
+
         if (!StringUtils.hasText(email) || !Boolean.TRUE.equals(emailVerified)) {
+            log.warn("[AuthService] Google login rejected - email missing or not verified");
             throw new AuthException("Google account email is missing or not verified",
                     HttpStatus.UNAUTHORIZED);
         }
@@ -160,6 +178,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByProviderAndGoogleId(AuthProvider.GOOGLE, googleId)
                 .orElseGet(() -> {
                     userRepository.findByEmailIgnoreCase(email).ifPresent(existingUser -> {
+                        log.warn("[AuthService] Google login conflict - email {} already has local account", email);
                         throw new AuthException(
                                 "An account with this email already exists. Please login with email and password.",
                                 HttpStatus.CONFLICT);
@@ -174,7 +193,7 @@ public class AuthServiceImpl implements AuthService {
                             .role(Role.USER)
                             .build();
 
-                    log.info("New Google user created: {}", email);
+                    log.info("[AuthService] New Google user created: {}", email);
                     return saveUserOrThrowConflict(
                             newUser,
                             "An account with this email already exists. Please login with email and password."
@@ -185,6 +204,7 @@ public class AuthServiceImpl implements AuthService {
         user.setAvatarUrl(pictureUrl);
         userRepository.save(user);
 
+        log.info("[AuthService] Google login successful - userId={}, email={}", user.getId(), email);
         CustomUserDetails userDetails = new CustomUserDetails(user);
         return buildAuthResponse(userDetails);
     }
@@ -192,22 +212,29 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
+        log.info("[AuthService] Token refresh attempt");
 
         if (!jwtTokenProvider.validateToken(refreshToken, TokenType.REFRESH)) {
+            log.warn("[AuthService] Token refresh failed - invalid or expired refresh token");
             throw new AuthException("Invalid or expired refresh token");
         }
 
         if (!jwtTokenProvider.isRefreshToken(refreshToken)) {
+            log.warn("[AuthService] Token refresh failed - token is not a refresh token");
             throw new AuthException("Token is not a refresh token", HttpStatus.BAD_REQUEST);
         }
 
         String userId = jwtTokenProvider.getUserIdFromToken(refreshToken, TokenType.REFRESH);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthException("User not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> {
+                    log.warn("[AuthService] Token refresh failed - user not found: {}", userId);
+                    return new AuthException("User not found", HttpStatus.NOT_FOUND);
+                });
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
 
         String newAccessToken = jwtTokenProvider.generateAccessToken(userDetails);
+        log.info("[AuthService] Token refreshed - userId={}", userId);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
@@ -220,8 +247,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserInfo getCurrentUser(String userId) {
+        log.debug("[AuthService] Fetching current user - userId={}", userId);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthException("User not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> {
+                    log.warn("[AuthService] User not found - userId={}", userId);
+                    return new AuthException("User not found", HttpStatus.NOT_FOUND);
+                });
         return mapToUserInfo(user);
     }
 
