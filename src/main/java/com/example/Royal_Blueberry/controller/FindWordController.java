@@ -108,8 +108,10 @@ public class FindWordController {
     @GetMapping("get-detail/{word}")
     public ResponseEntity<WordDetailDto> findWord(@PathVariable("word") String word)
     {
-        log.info("have a request form client");
+        log.info("[FindWord] GET /get-detail/{} - Looking up word", word);
         WordDetailDto dto = findWordService.findWord(word.trim());
+        int meaningCount = dto.getMeanings() != null ? dto.getMeanings().size() : 0;
+        log.info("[FindWord] Word '{}' found - {} meanings, phonetic={}", word, meaningCount, dto.getPhonetic());
         return ResponseEntity.ok(dto);
     }
 }

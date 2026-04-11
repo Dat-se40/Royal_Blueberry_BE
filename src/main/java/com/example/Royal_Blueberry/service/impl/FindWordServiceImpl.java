@@ -14,6 +14,7 @@ import com.example.Royal_Blueberry.service.FindWordService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FindWordServiceImpl implements FindWordService {
 
     private final MerriamWebsterClient mwClient;
@@ -33,6 +35,9 @@ public class FindWordServiceImpl implements FindWordService {
 
     @Override
     public WordDetailDto findWord(String word) {
+        log.info("[FindWordService] Looking up word: '{}'", word);
+        long startTime = System.currentTimeMillis();
+
         // Gọi song song 3 API
         CompletableFuture<String> mwDictFuture =
                 CompletableFuture.supplyAsync(() -> mwClient.fetchDictionary(word));
@@ -49,7 +54,15 @@ public class FindWordServiceImpl implements FindWordService {
         List<MWThesaurusEntry> mwThesaurus = mwParser.parseThesaurus(mwThesaurusFuture.join());
         List<FreeEntry> freeEntries = parseFree(freeFuture.join());
 
-        return merge(word, mwEntries, mwThesaurus, freeEntries);
+        log.debug("[FindWordService] API results - MW entries={}, MW thesaurus={}, Free entries={}",
+                mwEntries.size(), mwThesaurus.size(), freeEntries.size());
+
+        WordDetailDto result = merge(word, mwEntries, mwThesaurus, freeEntries);
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info("[FindWordService] Word '{}' resolved in {}ms - meanings={}",
+                word, elapsed, result.getMeanings() != null ? result.getMeanings().size() : 0);
+
+        return result;
     }
 
     private WordDetailDto merge(
@@ -68,7 +81,7 @@ public class FindWordServiceImpl implements FindWordService {
         String audioUs = extractAudio(freeEntry, "en-US");
         String audioUk = extractAudio(freeEntry, "en-GB");
 
-        // Merge meanings — ưu tiên structure của Free, bổ sung example từ Free
+        // Merge meanings - ưu tiên structure của Free, bổ sung example từ Free
         List<WordDetailDto.MeaningDto> meanings = buildMeanings(mwEntries, freeEntry, synAnt);
 
         return WordDetailDto.builder()
@@ -208,7 +221,7 @@ public class FindWordServiceImpl implements FindWordService {
             if (json == null || json.isBlank()) return List.of();
             return objectMapper.readValue(json, new TypeReference<List<FreeEntry>>() {});
         } catch (Exception e) {
-            System.out.println("Free parse error: " + e.getMessage());
+            log.warn("[FindWordService] Free Dictionary parse error: {}", e.getMessage());
             return List.of();
         }
     }

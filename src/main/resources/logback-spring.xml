@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <conversionRule conversionWord="clr"
+                    converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+
+    <property name="LOG_PATTERN"
+              value="%clr(%d{HH:mm:ss.SSS}){magenta} %clr(|){faint} %clr(%-5level){INFO=green, WARN=yellow, ERROR=red, DEBUG=cyan} %clr(|){faint} %clr([%15.15thread]){blue} %clr(|){faint} %clr(%-40.40logger{39}){yellow} %clr(|){faint} %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Application layers -->
+    <logger name="com.example.Royal_Blueberry" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.controller" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.service" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.security" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.config" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.client" level="INFO"/>
+    <logger name="com.example.Royal_Blueberry.exception" level="INFO"/>
+
+    <!-- Framework noise reduction -->
+    <logger name="org.springframework.security" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="org.springframework.data.mongodb" level="WARN"/>
+    <logger name="org.mongodb.driver" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

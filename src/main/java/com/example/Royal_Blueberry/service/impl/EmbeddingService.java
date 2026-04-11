@@ -61,10 +61,10 @@ public class EmbeddingService {
 
             isInitialized = true;
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("[EmbeddingService] ✅ ONNX model loaded successfully in {}ms", elapsed);
+            log.info("[EmbeddingService] [OK] ONNX model loaded successfully in {}ms", elapsed);
 
         } catch (Exception e) {
-            log.error("[EmbeddingService] ❌ Failed to initialize ONNX model", e);
+            log.error("[EmbeddingService] [FAIL] Failed to initialize ONNX model", e);
             throw new RuntimeException("Failed to initialize EmbeddingService: " + e.getMessage(), e);
         }
     }

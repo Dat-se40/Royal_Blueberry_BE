@@ -31,21 +31,34 @@ public class SemanticSearchServiceImpl  implements SemanticSearchService {
      */
     @Override
     public List<SemanticResult> search(String query, int topK, float threshold) {
+        log.info("[SemanticSearch] Searching - query='{}', topK={}, threshold={}", query, topK, threshold);
+        long startTime = System.currentTimeMillis();
+
         float[] vector = embeddingService.embed(query);
 
         Map<String, float[]> vectorCache = embedWordService.getVectorCache() ;
         if(vectorCache.isEmpty())
         {
-            log.warn("[Semantic Service] Vector cache is empty");
+            log.warn("[SemanticSearch] Vector cache is empty - no results");
             return List.of();
         }
-        return vectorCache.entrySet().stream().map( entry ->
+
+        log.debug("[SemanticSearch] Searching against {} cached vectors", vectorCache.size());
+        List<SemanticResult> results = vectorCache.entrySet().stream().map( entry ->
         {
             float score = cosineSimilarity(vector,entry.getValue());
             return new SemanticResult(entry.getKey(), score);
         }).filter(r -> r.getScore() >= threshold).
                 sorted(Comparator.comparingDouble(SemanticResult::getScore).
                         reversed()).limit(topK).collect(Collectors.toList());
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info("[SemanticSearch] Found {} results for '{}' in {}ms", results.size(), query, elapsed);
+        if (!results.isEmpty()) {
+            log.debug("[SemanticSearch] Top result: word='{}', score={}",
+                    results.get(0).getWord(), results.get(0).getScore());
+        }
+        return results;
     }
     private float cosineSimilarity(float[] vectorA , float[] vectorB)
     {

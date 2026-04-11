@@ -78,7 +78,10 @@ public class PackageController
     @PostMapping
     public ResponseEntity<PackageDto> createPackage(@RequestBody PackageDto packageDto)
     {
+        log.info("[Package] POST /packages - Creating package name='{}', category='{}', level='{}'",
+                packageDto.getName(), packageDto.getCategory(), packageDto.getLevel());
         PackageDto createdPackage = packageService.createPackage(packageDto);
+        log.info("[Package] Package created - id={}", createdPackage.getId());
         return new ResponseEntity<>(createdPackage, HttpStatus.CREATED);
     }
     // ────────────────────────────────────────────────── GET ALL PACKAGES ──
@@ -201,6 +204,7 @@ public class PackageController
                     .collect(Collectors.toList());
         }
 
+        log.info("[Package] GET all packages - {} results after filtering", allPackages.size());
         return new ResponseEntity<>(allPackages, HttpStatus.OK);
     }
     @Operation(
@@ -235,7 +239,9 @@ public class PackageController
     @GetMapping("{id}")
     public ResponseEntity<PackageDto> getPackage(@PathVariable String id)
     {
+        log.info("[Package] GET /packages/{} - Fetching package", id);
         PackageDto foundPackage = packageService.getPackage(id);
+        log.info("[Package] Package found - name='{}', totalWords={}", foundPackage.getName(), foundPackage.getTotalWords());
         return ResponseEntity.ok(foundPackage);
     }
     /*

@@ -187,7 +187,7 @@ public class SemanticSearchController {
                 }
             } catch (Exception e) {
                 failed.add(word);
-                log.warn("[EmbedInit] [{}/{}] ERROR: {} — {}", i + 1, list.size(), word, e.getMessage());
+                log.warn("[EmbedInit] [{}/{}] ERROR: {} - {}", i + 1, list.size(), word, e.getMessage());
             }
 
             // Log tiến độ mỗi 50 từ
