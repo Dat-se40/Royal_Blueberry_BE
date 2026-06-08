@@ -15,4 +15,5 @@ public interface AuthService {
     AuthResponse refreshToken(RefreshTokenRequest request);
 
     UserInfo getCurrentUser(String userId);
+    void logout(String refreshToken);
 }

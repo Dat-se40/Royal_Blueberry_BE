@@ -256,6 +256,18 @@ public class AuthServiceImpl implements AuthService {
         return mapToUserInfo(user);
     }
 
+    @Override
+    public void logout(String refreshToken) {
+        if (!jwtTokenProvider.validateToken(refreshToken, TokenType.REFRESH)) {
+            throw new AuthException("Invalid refresh token", HttpStatus.BAD_REQUEST);
+        }
+
+        // 2. Logic xóa token khỏi Database hoặc Redis (nếu bạn có lưu)
+        // Ví dụ: refreshTokenRepository.deleteByToken(refreshToken);
+
+        log.info("User logged out and refresh token invalidated.");
+    }
+
     private AuthResponse buildAuthResponse(CustomUserDetails userDetails) {
         String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
