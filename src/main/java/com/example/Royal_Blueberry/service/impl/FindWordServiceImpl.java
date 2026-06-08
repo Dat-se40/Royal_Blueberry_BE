@@ -8,6 +8,7 @@ import com.example.Royal_Blueberry.entity.free.FreeEntry;
 import com.example.Royal_Blueberry.entity.free.FreeMeaning;
 import com.example.Royal_Blueberry.entity.free.FreePhonetic;
 import com.example.Royal_Blueberry.entity.merriam.MWEntry;
+import com.example.Royal_Blueberry.entity.merriam.MWPronunciation;
 import com.example.Royal_Blueberry.entity.merriam.MWThesaurusEntry;
 import com.example.Royal_Blueberry.entity.merriam.MerriamWebsterParser;
 import com.example.Royal_Blueberry.service.FindWordService;
@@ -74,8 +75,8 @@ public class FindWordServiceImpl implements FindWordService {
         FreeEntry freeEntry = freeEntries.isEmpty() ? null : freeEntries.get(0);
         var synAnt = mwParser.extractSynonymsAntonyms(mwThesaurus);
 
-        // phonetic: Free đẹp hơn MW
-        String phonetic = freeEntry != null ? freeEntry.getPhonetic() : extractMwPhonetic(mwEntries);
+        // phonetic: ưu tiên Free (IPA), fallback phonetics[].text rồi MW (kể cả dạng chia trong ins)
+        String phonetic = extractPhonetic(word, freeEntry, mwEntries);
 
         // audio: lấy từ Free phonetics
         String audioUs = extractAudio(freeEntry, "en-US");
@@ -193,12 +194,82 @@ public class FindWordServiceImpl implements FindWordService {
         return result;
     }
 
-    private String extractMwPhonetic(List<MWEntry> entries) {
-        if (entries.isEmpty()) return null;
-        MWEntry first = entries.get(0);
-        if (first.getHwi() == null || first.getHwi().getPronunciations() == null
-                || first.getHwi().getPronunciations().isEmpty()) return null;
-        return first.getHwi().getPronunciations().get(0).getMw();
+    private String extractPhonetic(String word, FreeEntry freeEntry, List<MWEntry> mwEntries) {
+        String fromFree = extractFreePhonetic(freeEntry);
+        if (fromFree != null && !fromFree.isBlank()) {
+            return fromFree;
+        }
+        return extractMwPhonetic(word, mwEntries);
+    }
+
+    private String extractFreePhonetic(FreeEntry freeEntry) {
+        if (freeEntry == null) return null;
+
+        if (freeEntry.getPhonetic() != null && !freeEntry.getPhonetic().isBlank()) {
+            return freeEntry.getPhonetic();
+        }
+
+        if (freeEntry.getPhonetics() == null) return null;
+
+        return freeEntry.getPhonetics().stream()
+                .map(FreePhonetic::getText)
+                .filter(text -> text != null && !text.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String extractMwPhonetic(String word, List<MWEntry> entries) {
+        if (entries == null || entries.isEmpty()) return null;
+
+        String normalizedWord = normalizeMwHeadword(word);
+
+        String fromHeadword = entries.stream()
+                .filter(entry -> entry.getHwi() != null
+                        && headwordMatches(entry.getHwi().getHeadword(), normalizedWord)
+                        && entry.getHwi().getPronunciations() != null)
+                .flatMap(entry -> entry.getHwi().getPronunciations().stream())
+                .map(MWPronunciation::getMw)
+                .filter(this::hasText)
+                .findFirst()
+                .orElse(null);
+        if (fromHeadword != null) return fromHeadword;
+
+        String fromInflection = entries.stream()
+                .filter(entry -> entry.getInflections() != null)
+                .flatMap(entry -> entry.getInflections().stream())
+                .filter(inflection -> inflectedFormMatches(inflection.getInflectedForm(), normalizedWord)
+                        && inflection.getPronunciations() != null)
+                .flatMap(inflection -> inflection.getPronunciations().stream())
+                .map(MWPronunciation::getMw)
+                .filter(this::hasText)
+                .findFirst()
+                .orElse(null);
+        if (fromInflection != null) return fromInflection;
+
+        return entries.stream()
+                .filter(entry -> entry.getHwi() != null && entry.getHwi().getPronunciations() != null)
+                .flatMap(entry -> entry.getHwi().getPronunciations().stream())
+                .map(MWPronunciation::getMw)
+                .filter(this::hasText)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean headwordMatches(String headword, String normalizedWord) {
+        return normalizeMwHeadword(headword).equals(normalizedWord);
+    }
+
+    private boolean inflectedFormMatches(String inflectedForm, String normalizedWord) {
+        return normalizeMwHeadword(inflectedForm).equals(normalizedWord);
+    }
+
+    private String normalizeMwHeadword(String value) {
+        if (value == null) return "";
+        return value.replace("*", "").toLowerCase().trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String extractAudio(FreeEntry freeEntry, String locale) {

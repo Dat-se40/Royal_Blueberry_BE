@@ -23,4 +23,7 @@ public class MWEntry {
 
     @JsonProperty("shortdef")
     private List<String> shortDefinitions;
+
+    @JsonProperty("ins")
+    private List<MWInflection> inflections;
 }
