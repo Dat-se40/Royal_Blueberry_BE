@@ -22,7 +22,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -78,9 +80,9 @@ public class FindWordServiceImpl implements FindWordService {
         // phonetic: ưu tiên Free (IPA), fallback phonetics[].text rồi MW (kể cả dạng chia trong ins)
         String phonetic = extractPhonetic(word, freeEntry, mwEntries);
 
-        // audio: lấy từ Free phonetics
-        String audioUs = extractAudio(freeEntry, "en-US");
-        String audioUk = extractAudio(freeEntry, "en-GB");
+        // audio: ưu tiên Free phonetics, fallback MW (hw → ins → bất kỳ)
+        String audioUs = extractAudio(word, freeEntry, mwEntries, "en-US");
+        String audioUk = extractAudio(word, freeEntry, mwEntries, "en-GB");
 
         // Merge meanings - ưu tiên structure của Free, bổ sung example từ Free
         List<WordDetailDto.MeaningDto> meanings = buildMeanings(mwEntries, freeEntry, synAnt);
@@ -219,40 +221,57 @@ public class FindWordServiceImpl implements FindWordService {
     }
 
     private String extractMwPhonetic(String word, List<MWEntry> entries) {
-        if (entries == null || entries.isEmpty()) return null;
+        return findMwPronunciation(word, entries, pronunciation -> hasText(pronunciation.getMw()))
+                .map(MWPronunciation::getMw)
+                .orElse(null);
+    }
+
+    private String extractMwAudio(String word, List<MWEntry> entries) {
+        return findMwPronunciation(word, entries, pronunciation -> hasText(toMwAudioUrl(pronunciation)))
+                .map(this::toMwAudioUrl)
+                .orElse(null);
+    }
+
+    private Optional<MWPronunciation> findMwPronunciation(
+            String word,
+            List<MWEntry> entries,
+            Predicate<MWPronunciation> predicate) {
+
+        if (entries == null || entries.isEmpty()) return Optional.empty();
 
         String normalizedWord = normalizeMwHeadword(word);
 
-        String fromHeadword = entries.stream()
+        Optional<MWPronunciation> fromHeadword = entries.stream()
                 .filter(entry -> entry.getHwi() != null
                         && headwordMatches(entry.getHwi().getHeadword(), normalizedWord)
                         && entry.getHwi().getPronunciations() != null)
                 .flatMap(entry -> entry.getHwi().getPronunciations().stream())
-                .map(MWPronunciation::getMw)
-                .filter(this::hasText)
-                .findFirst()
-                .orElse(null);
-        if (fromHeadword != null) return fromHeadword;
+                .filter(predicate)
+                .findFirst();
+        if (fromHeadword.isPresent()) return fromHeadword;
 
-        String fromInflection = entries.stream()
+        Optional<MWPronunciation> fromInflection = entries.stream()
                 .filter(entry -> entry.getInflections() != null)
                 .flatMap(entry -> entry.getInflections().stream())
                 .filter(inflection -> inflectedFormMatches(inflection.getInflectedForm(), normalizedWord)
                         && inflection.getPronunciations() != null)
                 .flatMap(inflection -> inflection.getPronunciations().stream())
-                .map(MWPronunciation::getMw)
-                .filter(this::hasText)
-                .findFirst()
-                .orElse(null);
-        if (fromInflection != null) return fromInflection;
+                .filter(predicate)
+                .findFirst();
+        if (fromInflection.isPresent()) return fromInflection;
 
         return entries.stream()
                 .filter(entry -> entry.getHwi() != null && entry.getHwi().getPronunciations() != null)
                 .flatMap(entry -> entry.getHwi().getPronunciations().stream())
-                .map(MWPronunciation::getMw)
-                .filter(this::hasText)
-                .findFirst()
-                .orElse(null);
+                .filter(predicate)
+                .findFirst();
+    }
+
+    private String toMwAudioUrl(MWPronunciation pronunciation) {
+        if (pronunciation == null || pronunciation.getSound() == null) return null;
+        String filename = pronunciation.getSound().getAudio();
+        if (!hasText(filename)) return null;
+        return mwParser.buildAudioUrl(filename);
     }
 
     private boolean headwordMatches(String headword, String normalizedWord) {
@@ -272,17 +291,23 @@ public class FindWordServiceImpl implements FindWordService {
         return value != null && !value.isBlank();
     }
 
-    private String extractAudio(FreeEntry freeEntry, String locale) {
+    private String extractAudio(String word, FreeEntry freeEntry, List<MWEntry> mwEntries, String locale) {
+        String fromFree = extractFreeAudio(freeEntry, locale);
+        if (fromFree != null) return fromFree;
+        return extractMwAudio(word, mwEntries);
+    }
+
+    private String extractFreeAudio(FreeEntry freeEntry, String locale) {
         if (freeEntry == null || freeEntry.getPhonetics() == null) return null;
 
         return freeEntry.getPhonetics().stream()
-                .filter(p -> p.getAudio() != null && p.getAudio().contains(locale.toLowerCase().replace("-", "-")))
+                .filter(p -> p.getAudio() != null && p.getAudio().contains(locale.toLowerCase()))
                 .map(FreePhonetic::getAudio)
+                .filter(this::hasText)
                 .findFirst()
-                // fallback: lấy audio bất kỳ có URL
                 .orElseGet(() -> freeEntry.getPhonetics().stream()
                         .map(FreePhonetic::getAudio)
-                        .filter(a -> a != null && !a.isBlank())
+                        .filter(this::hasText)
                         .findFirst()
                         .orElse(null));
     }
