@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -37,10 +38,10 @@ class FindWordPhoneticTest {
               },
               {
                 "fl": "verb",
-                "hwi": {"hw": "be", "prs": [{"mw": "'bē"}]},
+                "hwi": {"hw": "be", "prs": [{"mw": "'bee"}]},
                 "ins": [
                   {"il": "present tense third-person singular", "if": "is", "prs": [{"mw": "'iz", "sound": {"audio": "be000008"}}]},
-                  {"il": "past tense first-person singular", "if": "was", "prs": [{"mw": "'wəz", "sound": {"audio": "be000002"}}]}
+                  {"il": "past tense first-person singular", "if": "was", "prs": [{"mw": "'waz", "sound": {"audio": "be000002"}}]}
                 ],
                 "shortdef": ["to have identity"]
               }
@@ -59,7 +60,7 @@ class FindWordPhoneticTest {
     private static final String AND_MW_JSON = """
             [{
               "fl": "conjunction",
-              "hwi": {"hw": "and", "prs": [{"mw": "ən(d)", "sound": {"audio": "and00001"}}]},
+              "hwi": {"hw": "and", "prs": [{"mw": "uhn(d)", "sound": {"audio": "and00001"}}]},
               "shortdef": ["used as a function word"]
             }]
             """;
@@ -106,7 +107,7 @@ class FindWordPhoneticTest {
 
         WordDetailDto result = findWordService.findWord("and");
 
-        assertEquals("ən(d)", result.getPhonetic());
+        assertEquals("uhn(d)", result.getPhonetic());
         assertEquals("https://example.com/and.mp3", result.getAudioUs());
     }
 
@@ -123,5 +124,114 @@ class FindWordPhoneticTest {
                 result.getAudioUs()
         );
         assertNotNull(result.getAudioUk());
+    }
+
+    @Test
+    void fallsBackToFreeOnlyMeaningsWhenMwHasNoEntries() {
+        when(mwClient.fetchDictionary("hello")).thenReturn("[]");
+        when(mwClient.fetchThesaurus("hello")).thenReturn("[]");
+        when(freeClient.fetchWord("hello")).thenReturn("""
+                [{
+                  "word": "hello",
+                  "phonetic": "/huh-loh/",
+                  "phonetics": [{"text": "/huh-loh/", "audio": "https://audio.example/hello.mp3"}],
+                  "meanings": [{
+                    "partOfSpeech": "interjection",
+                    "synonyms": ["hi"],
+                    "antonyms": ["goodbye"],
+                    "definitions": [{
+                      "definition": "used as a greeting",
+                      "example": "Hello there",
+                      "synonyms": ["greeting"],
+                      "antonyms": []
+                    }]
+                  }]
+                }]
+                """);
+
+        WordDetailDto result = findWordService.findWord("hello");
+
+        assertEquals("/huh-loh/", result.getPhonetic());
+        assertEquals(1, result.getMeanings().size());
+        assertEquals("interjection", result.getMeanings().get(0).getPartOfSpeech());
+        assertEquals("used as a greeting",
+                result.getMeanings().get(0).getDefinitions().get(0).getDefinition());
+        assertEquals("Hello there",
+                result.getMeanings().get(0).getDefinitions().get(0).getExample());
+        assertEquals("hi", result.getMeanings().get(0).getSynonyms().get(0));
+    }
+
+    @Test
+    void mergesMwDefinitionsWithFreeExamplesAndDefinitionLevelRelations() {
+        when(mwClient.fetchDictionary("run")).thenReturn("""
+                [{
+                  "fl": "verb",
+                  "hwi": {"hw": "run", "prs": [{"mw": "run-phonetic"}]},
+                  "shortdef": ["to move swiftly", "to operate"]
+                }]
+                """);
+        when(mwClient.fetchThesaurus("run")).thenReturn("""
+                [{
+                  "def": [{
+                    "sseq": [[["sense", {
+                      "syn_list": [[{"wd": "race"}]],
+                      "ant_list": [[{"wd": "walk"}]]
+                    }]]]
+                  }]
+                }]
+                """);
+        when(freeClient.fetchWord("run")).thenReturn("""
+                [{
+                  "word": "run",
+                  "phonetics": [{"audio": "https://audio.example/run.mp3"}],
+                  "meanings": [{
+                    "partOfSpeech": "verb",
+                    "definitions": [
+                      {
+                        "definition": "move fast",
+                        "example": "I run every morning",
+                        "synonyms": ["sprint"],
+                        "antonyms": ["walk"]
+                      },
+                      {
+                        "definition": "manage",
+                        "example": "She runs the shop",
+                        "synonyms": ["operate"],
+                        "antonyms": []
+                      }
+                    ]
+                  }]
+                }]
+                """);
+
+        WordDetailDto result = findWordService.findWord("run");
+
+        assertEquals("run-phonetic", result.getPhonetic());
+        assertEquals("I run every morning",
+                result.getMeanings().get(0).getDefinitions().get(0).getExample());
+        assertEquals("sprint",
+                result.getMeanings().get(0).getDefinitions().get(0).getSynonyms().get(0));
+        assertEquals("race", result.getMeanings().get(0).getSynonyms().get(0));
+        assertEquals("walk", result.getMeanings().get(0).getAntonyms().get(0));
+    }
+
+    @Test
+    void invalidFreeJsonDoesNotBreakMwResultAndAudioCanStayNull() {
+        when(mwClient.fetchDictionary("book")).thenReturn("""
+                [{
+                  "fl": "noun",
+                  "hwi": {"hw": "book", "prs": [{"mw": "book-phonetic"}]},
+                  "shortdef": ["a set of written sheets"]
+                }]
+                """);
+        when(mwClient.fetchThesaurus("book")).thenReturn("[]");
+        when(freeClient.fetchWord("book")).thenReturn("{invalid");
+
+        WordDetailDto result = findWordService.findWord("book");
+
+        assertEquals("book-phonetic", result.getPhonetic());
+        assertEquals(1, result.getMeanings().size());
+        assertNull(result.getAudioUs());
+        assertNull(result.getAudioUk());
     }
 }
